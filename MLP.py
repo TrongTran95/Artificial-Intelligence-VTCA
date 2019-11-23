@@ -7,16 +7,21 @@ import matplotlib.pyplot as plt
 #    c is the number of total label
 def softmax(V):
     # TODO: implement softmax function
-    V_new = []
-    for a in V:
-        sm_a = softmax_array(a)
-        V_new.append(sm_a)
-    return V_new
+    # M1
+    # V_new = []
+    # for a in V:
+    #     sm_a = softmax_array(a)
+    #     V_new.append(sm_a)
+    # return V_new
+
+    # OR M2
+    a = np.exp(V)
+    b = np.sum(a, axis = 1).reshape(V.shape[0], 1)
+    return a/b
 
 def softmax_array(a):
     exp_a = np.exp(a)
     mau_so = np.sum(exp_a)
-
     # M1
     # ket_qua = []
     # for num in exp_a:
@@ -31,23 +36,32 @@ def softmax_array(a):
 # V: size m*n for any interger m, n
 def reLU(V):
     # TODO: set every negative element in matrix V to zero
-    for row in range(V.shape[0]):
-        for col in range(V.shape[1]):
-            if V[row][col] < 0:
-                V[row][col] = 0
-    return V
+    # M1
+    # for row in range(V.shape[0]):
+    #     for col in range(V.shape[1]):
+    #         if V[row][col] < 0:
+    #             V[row][col] = 0
+    # return V
+
+    # OR M2
+    return np.maximum(V, 0)
 
 # V: size m*n for any interger m, n
 def reLU_grad(V):
-    # TODO: set every positive element in matrix V to 1
-    # otherwise: set to 0
-    for row in range(V.shape[0]):
-        for col in range(V.shape[1]):
-            num = 0
-            if V[row][col] > 0:
-                num = 1
-            V[row][col] = num
-    return V
+    # TODO: set every positive element in matrix V to 1, otherwise: set to 0
+    # M1
+    # for row in range(V.shape[0]):
+    #     for col in range(V.shape[1]):
+    #         num = 0
+    #         if V[row][col] > 0:
+    #             num = 1
+    #         V[row][col] = num
+    # return V
+
+    # OR M2
+    grad = np.ones_like(V)
+    grad[V <= 0] = 0
+    return grad
 
 
 ## One-hot coding
@@ -58,12 +72,20 @@ def generate_onehot_coding(y, C=3):
     # y_i=0 ==> one_hot_coding = [1, 0, 0]
     # y_i=1 ==> one_hot_coding = [0, 1, 0]
     # y_i=2 ==> one_hot_coding = [0, 0, 1]
-    new_y = []
-    for index in range(y.shape[0]):
-        one_hot_coding = np.zeros(C)
-        one_hot_coding[y[index]] = 1
-        new_y.append(one_hot_coding)
-    return np.array(new_y)
+    # M1
+    # new_y = []
+    # for index in range(y.shape[0]):
+    #     one_hot_coding = np.zeros(C)
+    #     one_hot_coding[y[index]] = 1
+    #     new_y.append(one_hot_coding)
+    # return np.array(new_y)
+
+    # OR M2
+    Y = np.zeros(shape=(len(y), C))
+    for i in range(len(y)):
+        label = y[i]
+        Y[i][label] = 1
+    return Y
 
 # X: size n*f
 #    n is the number of sample
@@ -71,7 +93,7 @@ def generate_onehot_coding(y, C=3):
 def generate_X_dot(X):
     # TODO: Append a column of number 1 to the left of X
     one_arr = np.ones((X.shape[0], 1))
-    X_dot = np.concatenate((one_arr,X), asix = 1)
+    X_dot = np.concatenate((one_arr,X), axis = 1)
     return X_dot
 
 
@@ -92,8 +114,12 @@ def feed_forward(X_dot, W1_dot, W2_dot, activationFunction):
     # Calculate A1_dot
     # Calculate Z2
     # Calculate Y hat
-    # return Z1, A1_dot, Z2, Y_hat
-    pass
+    Z1 = np.dot(X_dot, W1_dot)
+    A1 = reLU(Z1)
+    A1_dot = generate_X_dot(A1)
+    Z2 = np.dot(A1_dot, W2_dot)
+    Y_hat = activationFunction(Z2)
+    return Z1, A1_dot, Z2, Y_hat
 
 
 def predict_class(X_dot, W1_dot, W2_dot, activationFunction):
@@ -101,12 +127,27 @@ def predict_class(X_dot, W1_dot, W2_dot, activationFunction):
     return np.argmax(Y_hat, axis=1)
 
 
-def back_propagation(X_dot, Y, Z1, A1_dot, Z2, Y_hat, W1_dot, W2_dot):
+def back_propagation(X_dot, Y, Z1, A1_dot, Y_hat, W2_dot):
     # TODO: backpropagation
+    #
+    N = X_dot.shape[0]
+    #
+    E2 = (Y_hat - Y) / N
+    #
+    dW2_dot = np.dot(A1_dot.T, E2)
+
+    #
+    W2 = np.delete(W2_dot, 0, axis = 0)
+    #
+    E1 = np.dot(E2, W2.T)*reLU_grad(Z1)
+
+    #
+    dW1_dot = np.dot(X_dot.T, E1)
     # Calculate E2
     # calculate dW2_dot
     # calculate E1
     # calculate dW1_dot
+    # Tính W1 thay đổi bao nhiêu, W2 thay đổi bao nhiêu
     return dW1_dot, dW2_dot
 
 
@@ -120,19 +161,69 @@ def train(d0, d1, d2, X, y, eta, epochs):
     W1_dot = 0.1 * np.random.randn(d0 + 1, d1)
     W2_dot = 0.1 * np.random.randn(d1 + 1, d2)
 
+    # W1_dot = (3, 50)
+    # W2_dot = (51, 3)
+    # d0 = 2
+    # d1 = 50
+    # d2 = 3
+
     for i in range(epochs):
         # TODO:  Feedforward
-
+        Z1, A1_dot, Z2, Y_hat = feed_forward(X_dot, W1_dot, W2_dot, softmax)
         # print loss after each 1000 iterations
         if i % 1000 == 0:
             loss = cost(Y, Y_hat)
             print("iter %d, loss: %f" % (i, loss))
-
         # TODO: backpropagation
+        dW1_dot, dW2_dot = back_propagation(X_dot, Y, Z1, A1_dot, Y_hat, W2_dot)
+
 
         # TODO: Gradient Descent update
-
+        W1_dot -= eta * dW1_dot
+        W2_dot -= eta * dW2_dot
+    print("---------------")
+    print(W1_dot.shape)
+    print(W1_dot)
+    print("---------------")
+    print(W2_dot.shape)
+    print(W2_dot)
+    print("---------------")
     return W1_dot, W2_dot
+
+def showDiagram(X, y, W1_dot, W2_dot, activationFunction):
+
+    # X0 = X[predicted_class == 0, :]
+    # X1 = X[predicted_class == 1, :]
+    # X2 = X[predicted_class == 2, :]
+    # plt.scatter(X0[:, 0], X0[:, 1], s=10, c='red')
+    # plt.scatter(X1[:, 0], X1[:, 1], s=10, c='blue')
+    # plt.scatter(X2[:, 0], X2[:, 1], s=10, c='green')
+
+
+
+    xm = np.arange(-1.5, 1.5, 0.025)
+    ym = np.arange(-1.5, 1.5, 0.025)
+    xx, yy = np.meshgrid(xm, ym)
+
+    xx1 = xx.ravel().reshape(1, xx.size)
+    yy1 = yy.ravel().reshape(1, yy.size)
+
+    X0 = np.vstack((xx1, yy1)).T
+
+    X0_dot = generate_X_dot(X0)
+
+    Z = predict_class(X0_dot, W1_dot, W2_dot, activationFunction)
+
+    Z = Z.reshape(xx.shape)
+
+    CS = plt.contourf(xx, yy, Z, 200, cmap='jet', alpha = .1)
+
+    plt.scatter(X[:, 0], X[:, 1], c=y, s=10)
+
+    plt.xlim(-1.5, 1.5)
+    plt.ylim(-1.5, 1.5)
+
+    plt.show()
 
 X0=np.array([[-0.00000000e+00,  0.00000000e+00], [ 1.02370162e-03,  1.00490019e-02], [ 4.46886653e-04,  2.01970768e-02], [ 1.47407793e-02,  2.64760849e-02], [ 4.89297702e-03,  4.01066735e-02],
              [ 2.24532697e-02,  4.52394828e-02], [-1.29046709e-02,  5.92162482e-02], [ 1.40119290e-02,  6.93048028e-02], [ 2.81378611e-02,  7.57509518e-02], [ 3.10420311e-02,  8.54450415e-02],
@@ -217,8 +308,10 @@ W1_dot, W2_dot = train(d0, d1, d2, X, y, eta, epochs)
 
 # Predict and evaluate based on training data X
 X_dot = generate_X_dot(X)
-predicted_class = predict_class(X_dot, W1_dot, W2_dot, softmax)
-acc = (100*np.mean(predicted_class == y))
+predicted = predict_class(X_dot, W1_dot, W2_dot, softmax)
+acc = (100*np.mean(predicted == y))
 print('training accuracy: %.2f %%' % acc)
-
 #TODO: Visualize by contour graph
+
+
+showDiagram(X, y, W1_dot, W2_dot, softmax)
